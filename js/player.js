@@ -12,18 +12,16 @@
 const Player = (() => {
   let vjsPlayer = null;
   let currentChannel = null;
+  let retryCount = 0;
+  let retryTimer = null;
+  const MAX_RETRIES = 3;
 
   // DOM refs (set during init)
   let npLogo, npChannelName, npProgram;
   let epgStrip, epgStripInner, epgPlaceholder;
-  let corsWarning;
+  let corsWarning, errorOverlay, errorMsg, errorRetryBtn;
 
-  /**
-   * Initialize the Video.js player and cache DOM references.
-   * Must be called after DOMContentLoaded.
-   */
   // iOS Safari has native HLS — let it handle streams natively.
-  // Forcing overrideNative=true on iOS causes stalling and random stops.
   const isIOS = /iP(hone|ad|od)/i.test(navigator.userAgent);
 
   function init() {
@@ -34,34 +32,43 @@ const Player = (() => {
       fluid: false,
       fill: true,
       liveui: true,
+      errorDisplay: false, // we handle errors ourselves
       html5: {
         vhs: {
           overrideNative: !isIOS,
           enableLowInitialPlaylist: true,
           smoothQualityChange: true,
-          // Larger buffer on mobile to survive brief network hiccups
           bufferBasedABR: true,
           maxBufferLength: isIOS ? 60 : 30,
         },
         nativeAudioTracks: isIOS,
         nativeVideoTracks: isIOS,
       },
-      errorDisplay: true,
     });
 
-    // On stall/error, attempt a single automatic recovery
     vjsPlayer.on("error", () => {
       const err = vjsPlayer.error();
-      console.error("Video.js error:", err);
+      console.warn("Player error:", err && err.message);
+      handlePlaybackError();
     });
 
     vjsPlayer.on("stalled", () => {
-      // Short pause then resume to kick iOS out of a stall
       if (isIOS && !vjsPlayer.paused()) {
-        setTimeout(() => {
-          if (!vjsPlayer.paused()) vjsPlayer.play();
-        }, 1500);
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => {
+          if (!vjsPlayer.paused()) {
+            console.warn("iOS stall detected — retrying");
+            retryPlayback();
+          }
+        }, 3000);
       }
+    });
+
+    vjsPlayer.on("playing", () => {
+      // Successful playback — reset retry counter and hide error overlay
+      retryCount = 0;
+      clearTimeout(retryTimer);
+      hideErrorOverlay();
     });
 
     // Cache DOM refs
@@ -72,8 +79,59 @@ const Player = (() => {
     epgStripInner = document.getElementById("epg-strip-inner");
     epgPlaceholder = document.getElementById("epg-placeholder");
     corsWarning = document.getElementById("cors-warning");
-    // Hide strip by default until real EPG data arrives
+    errorOverlay = document.getElementById("player-error-overlay");
+    errorMsg = document.getElementById("player-error-msg");
+    errorRetryBtn = document.getElementById("player-error-retry");
+
+    if (errorRetryBtn) {
+      errorRetryBtn.addEventListener("click", () => {
+        retryCount = 0;
+        hideErrorOverlay();
+        if (currentChannel) retryPlayback();
+      });
+    }
+
     epgStrip.classList.add("hidden");
+  }
+
+  function handlePlaybackError() {
+    if (!currentChannel) return;
+    if (retryCount < MAX_RETRIES) {
+      retryCount++;
+      const delay = retryCount * 2000; // 2s, 4s, 6s
+      console.log(`Retry ${retryCount}/${MAX_RETRIES} in ${delay}ms…`);
+      showErrorOverlay(
+        `Stream error — retrying (${retryCount}/${MAX_RETRIES})…`,
+        false,
+      );
+      retryTimer = setTimeout(retryPlayback, delay);
+    } else {
+      showErrorOverlay(
+        "Stream unavailable. This channel may be offline or blocked.",
+        true,
+      );
+    }
+  }
+
+  function retryPlayback() {
+    if (!currentChannel || !vjsPlayer) return;
+    hideErrorOverlay();
+    vjsPlayer.src({
+      src: currentChannel.url,
+      type: currentChannel.mimeType || "application/x-mpegURL",
+    });
+    vjsPlayer.play().catch(() => {});
+  }
+
+  function showErrorOverlay(msg, showBtn) {
+    if (!errorOverlay) return;
+    if (errorMsg) errorMsg.textContent = msg;
+    if (errorRetryBtn) errorRetryBtn.style.display = showBtn ? "" : "none";
+    errorOverlay.classList.remove("hidden");
+  }
+
+  function hideErrorOverlay() {
+    if (errorOverlay) errorOverlay.classList.add("hidden");
   }
 
   /**
@@ -85,8 +143,10 @@ const Player = (() => {
       console.warn("Player not initialised");
       return;
     }
-
     currentChannel = channel;
+    retryCount = 0;
+    clearTimeout(retryTimer);
+    hideErrorOverlay();
     hideCorsWarning();
 
     vjsPlayer.src({

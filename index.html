@@ -107,6 +107,14 @@
             web browser that supports HTML5 video.
           </p>
         </video>
+        <!-- Custom error overlay (replaces Video.js built-in error page) -->
+        <div id="player-error-overlay" class="player-error-overlay hidden">
+          <div class="player-error-box">
+            <span class="player-error-icon">&#9888;&#65039;</span>
+            <p id="player-error-msg">Stream unavailable.</p>
+            <button id="player-error-retry" class="btn btn-primary btn-sm">&#8635; Retry</button>
+          </div>
+        </div>
       </div>
 
       <!-- EPG strip -->
