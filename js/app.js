@@ -119,7 +119,8 @@
       channelListEl.innerHTML = "";
       const hint = document.createElement("div");
       hint.className = "empty-state";
-      hint.innerHTML = "<p>\uD83D\uDCE1</p><p>Loading My IPTV playlist\u2026</p>";
+      hint.innerHTML =
+        "<p>\uD83D\uDCE1</p><p>Loading My IPTV playlist\u2026</p>";
       channelListEl.appendChild(hint);
     }
 
