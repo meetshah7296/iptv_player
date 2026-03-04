@@ -39,6 +39,10 @@
   const btnProxyToggle = document.getElementById("btn-proxy-toggle");
   const proxyToggleLabel = document.getElementById("proxy-toggle-label");
 
+  // Channel panel toggle
+  const btnToggleChannels = document.getElementById("btn-toggle-channels");
+  const appLayout = document.querySelector(".app-layout");
+
   /* ================================================================
      STATE
   ================================================================ */
@@ -64,6 +68,12 @@
     searchInput.addEventListener("input", handleSearch);
     btnProxyToggle.addEventListener("click", handleProxyToggle);
     updateProxyButton();
+    btnToggleChannels.addEventListener("click", handleToggleChannels);
+    // Restore previous collapsed state
+    if (localStorage.getItem("iptv_channels_hidden") === "true") {
+      appLayout.classList.add("channels-hidden");
+      btnToggleChannels.title = "Show channel list";
+    }
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !modalOverlay.classList.contains("hidden"))
         closeModal();
@@ -587,6 +597,14 @@
   /* ================================================================
      PROXY TOGGLE
   ================================================================ */
+  function handleToggleChannels() {
+    const hidden = appLayout.classList.toggle("channels-hidden");
+    localStorage.setItem("iptv_channels_hidden", hidden);
+    btnToggleChannels.title = hidden
+      ? "Show channel list"
+      : "Hide channel list";
+  }
+
   function handleProxyToggle() {
     const nowEnabled = !Storage.isProxyEnabled();
     Storage.setProxyEnabled(nowEnabled);
