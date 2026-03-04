@@ -65,7 +65,7 @@
     modalOverlay.addEventListener("click", (e) => {
       if (e.target === modalOverlay) closeModal();
     });
-    searchInput.addEventListener("input", handleSearch);
+    searchInput.addEventListener("input", debounce(handleSearch, 250));
     btnProxyToggle.addEventListener("click", handleProxyToggle);
     updateProxyButton();
     btnToggleChannels.addEventListener("click", handleToggleChannels);
@@ -84,6 +84,17 @@
     // Set up mobile bottom tab navigation
     setupMobileTabs();
   });
+
+  /* ================================================================
+     UTILITIES
+  ================================================================ */
+  function debounce(fn, ms) {
+    let t;
+    return function (...args) {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(this, args), ms);
+    };
+  }
 
   /* ================================================================
      MOBILE TAB NAVIGATION
@@ -442,11 +453,14 @@
       return a.localeCompare(b);
     });
 
+    // Auto-expand only for small playlists — prevents freezing on large ones
+    const autoExpand = channels.length <= 200;
+
     groupNames.forEach((groupName) => {
       const groupChannels = groups[groupName];
       const details = document.createElement("details");
       details.className = "channel-group";
-      details.open = true; // start expanded
+      details.open = autoExpand;
 
       const summary = document.createElement("summary");
       const groupCount = document.createElement("span");
