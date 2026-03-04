@@ -35,13 +35,9 @@
   const btnModalSpinner = document.getElementById("btn-modal-spinner");
   const btnAddPlaylist = document.getElementById("btn-add-playlist");
 
-  // Settings modal
-  const settingsOverlay = document.getElementById("settings-overlay");
-  const inputProxyUrl = document.getElementById("input-proxy-url");
-  const btnSettingsCancel = document.getElementById("btn-settings-cancel");
-  const btnSettingsSave = document.getElementById("btn-settings-save");
-  const btnOpenSettings = document.getElementById("btn-open-settings");
-  const proxyBadge = document.getElementById("proxy-badge");
+  // Proxy toggle
+  const btnProxyToggle = document.getElementById("btn-proxy-toggle");
+  const proxyToggleLabel = document.getElementById("proxy-toggle-label");
 
   /* ================================================================
      STATE
@@ -56,15 +52,8 @@
   ================================================================ */
   document.addEventListener("DOMContentLoaded", () => {
     Player.init();
-    renderPlaylistNav();
 
-    // Restore last active playlist
-    const lastId = Storage.loadLastActive();
-    if (lastId && Storage.getPlaylist(lastId)) {
-      activatePlaylist(lastId, false);
-    }
-
-    // Event listeners
+    // Wire up all event listeners first
     btnAddPlaylist.addEventListener("click", openAddModal);
     btnModalCancel.addEventListener("click", closeModal);
     btnModalSave.addEventListener("click", handleModalSave);
@@ -72,23 +61,80 @@
       if (e.target === modalOverlay) closeModal();
     });
     searchInput.addEventListener("input", handleSearch);
-
-    btnOpenSettings.addEventListener("click", openSettingsModal);
-    btnSettingsCancel.addEventListener("click", closeSettingsModal);
-    btnSettingsSave.addEventListener("click", handleSettingsSave);
-    settingsOverlay.addEventListener("click", (e) => {
-      if (e.target === settingsOverlay) closeSettingsModal();
-    });
-
-    updateProxyBadge();
-
+    btnProxyToggle.addEventListener("click", handleProxyToggle);
+    updateProxyButton();
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        if (!modalOverlay.classList.contains("hidden")) closeModal();
-        if (!settingsOverlay.classList.contains("hidden")) closeSettingsModal();
-      }
+      if (e.key === "Escape" && !modalOverlay.classList.contains("hidden"))
+        closeModal();
     });
+
+    // Always ensure the built-in "My IPTV" playlist exists
+    ensureDefaultPlaylist();
   });
+
+  /* ================================================================
+     DEFAULT PLAYLIST — always present
+  ================================================================ */
+  const DEFAULT_PLAYLIST_ID = "builtin-my-iptv";
+  const DEFAULT_PLAYLIST = {
+    id: DEFAULT_PLAYLIST_ID,
+    name: "My IPTV",
+    url: "https://iptv-org.github.io/iptv/index.m3u",
+    epgUrl: "",
+  };
+
+  /**
+   * Called on every page load.
+   * If the built-in playlist is already saved, just restore/render normally.
+   * If it is missing (first load or user deleted it), fetch and recreate it.
+   */
+  function ensureDefaultPlaylist() {
+    const existing = Storage.getPlaylist(DEFAULT_PLAYLIST_ID);
+
+    if (existing) {
+      // Already saved — just render and restore active
+      renderPlaylistNav();
+      const lastId = Storage.loadLastActive();
+      const targetId =
+        lastId && Storage.getPlaylist(lastId) ? lastId : DEFAULT_PLAYLIST_ID;
+      activatePlaylist(targetId, false);
+      return;
+    }
+
+    // Missing — fetch and recreate
+    loadDefaultPlaylist();
+  }
+
+  async function loadDefaultPlaylist() {
+    channelListEl.innerHTML = "";
+    const hint = document.createElement("div");
+    hint.className = "empty-state";
+    hint.innerHTML = "<p>📡</p><p>Loading My IPTV playlist…</p>";
+    channelListEl.appendChild(hint);
+
+    try {
+      const proxyUrl = Storage.loadProxyUrl();
+      const { epgUrlHint, channels } = await M3UParser.fetchAndParse(
+        DEFAULT_PLAYLIST.url,
+        proxyUrl,
+      );
+      // Save with the fixed reserved ID
+      Storage.addPlaylistWithId({
+        id: DEFAULT_PLAYLIST_ID,
+        name: DEFAULT_PLAYLIST.name,
+        url: DEFAULT_PLAYLIST.url,
+        epgUrl: DEFAULT_PLAYLIST.epgUrl || epgUrlHint || "",
+        channels,
+      });
+      renderPlaylistNav();
+      activatePlaylist(DEFAULT_PLAYLIST_ID, true);
+    } catch (err) {
+      console.warn("Default playlist load failed:", err.message);
+      renderPlaylistNav();
+      channelListEl.innerHTML = "";
+      channelListEl.appendChild(emptyChannelsEl);
+    }
+  }
 
   /* ================================================================
      PLAYLIST NAV
@@ -130,6 +176,10 @@
       del.className = "playlist-item-delete";
       del.textContent = "✕";
       del.title = "Delete playlist";
+      // Hide delete for the built-in default playlist
+      if (pl.id === DEFAULT_PLAYLIST_ID) {
+        del.style.display = "none";
+      }
       del.addEventListener("click", (e) => {
         e.stopPropagation();
         handleDeletePlaylist(pl.id);
@@ -476,42 +526,23 @@
   }
 
   /* ================================================================
-     SETTINGS MODAL
+     PROXY TOGGLE
   ================================================================ */
-  function openSettingsModal() {
-    inputProxyUrl.value = Storage.loadProxyUrl();
-    settingsOverlay.classList.remove("hidden");
-    setTimeout(() => inputProxyUrl.focus(), 50);
-  }
-
-  function closeSettingsModal() {
-    settingsOverlay.classList.add("hidden");
-  }
-
-  function handleSettingsSave() {
-    const raw = inputProxyUrl.value.trim();
-    if (raw && !isValidUrl(raw)) {
-      alert(
-        "The proxy URL does not look valid. It must start with http:// or https://",
-      );
-      return;
-    }
-    Storage.saveProxyUrl(raw);
-    updateProxyBadge();
-    closeSettingsModal();
-    // Force EPG reload with new proxy on next playlist activation
+  function handleProxyToggle() {
+    const nowEnabled = !Storage.isProxyEnabled();
+    Storage.setProxyEnabled(nowEnabled);
+    updateProxyButton();
+    // Force EPG to reload with new proxy setting on next playlist activation
     epgLoadingFor = null;
   }
 
-  function updateProxyBadge() {
-    if (!proxyBadge) return;
-    const url = Storage.loadProxyUrl();
-    if (url) {
-      proxyBadge.textContent = "Proxy ON";
-      proxyBadge.classList.remove("hidden");
-      proxyBadge.title = url;
-    } else {
-      proxyBadge.classList.add("hidden");
-    }
+  function updateProxyButton() {
+    const enabled = Storage.isProxyEnabled();
+    proxyToggleLabel.textContent = enabled ? "Proxy ON" : "Proxy OFF";
+    btnProxyToggle.classList.toggle("proxy-on", enabled);
+    btnProxyToggle.classList.toggle("proxy-off", !enabled);
+    btnProxyToggle.title = enabled
+      ? `CORS proxy active \u2014 click to disable`
+      : "CORS proxy disabled \u2014 click to enable";
   }
 })();

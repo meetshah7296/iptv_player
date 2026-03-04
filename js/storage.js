@@ -26,6 +26,10 @@ const Storage = (() => {
   const PLAYLISTS_KEY = "iptv_playlists";
   const LAST_ACTIVE_KEY = "iptv_last_active";
   const PROXY_KEY = "iptv_proxy_url";
+  const PROXY_ENABLED_KEY = "iptv_proxy_enabled";
+
+  // Default built-in proxy — change this if you redeploy the Worker
+  const DEFAULT_PROXY_URL = "https://iptv-proxy.meetshah7296.workers.dev";
 
   /** Generate a simple unique ID */
   function uid() {
@@ -67,6 +71,23 @@ const Storage = (() => {
     return playlist;
   }
 
+  /** Add a playlist with a specific fixed id (used for built-in playlists). */
+  function addPlaylistWithId({ id, name, url, epgUrl, channels }) {
+    const playlists = loadPlaylists().filter((p) => p.id !== id);
+    const playlist = {
+      id,
+      name: name.trim(),
+      url,
+      epgUrl: epgUrl || "",
+      channels,
+      addedAt: Date.now(),
+    };
+    // Prepend so it always appears first in the sidebar
+    playlists.unshift(playlist);
+    savePlaylists(playlists);
+    return playlist;
+  }
+
   /** Remove a playlist by id. */
   function deletePlaylist(id) {
     const playlists = loadPlaylists().filter((p) => p.id !== id);
@@ -94,18 +115,35 @@ const Storage = (() => {
     localStorage.removeItem(LAST_ACTIVE_KEY);
   }
 
-  /** Save the CORS proxy base URL (e.g. https://my-worker.workers.dev). */
+  /** Save a custom CORS proxy base URL. Pass empty string to revert to default. */
   function saveProxyUrl(url) {
-    if (url) {
+    if (url && url.trim()) {
       localStorage.setItem(PROXY_KEY, url.trim().replace(/\/$/, ""));
     } else {
       localStorage.removeItem(PROXY_KEY);
     }
   }
 
-  /** Load the saved CORS proxy base URL, or empty string if none. */
+  /** Load the active proxy URL. Returns empty string when proxy is disabled. */
   function loadProxyUrl() {
-    return localStorage.getItem(PROXY_KEY) || "";
+    if (!isProxyEnabled()) return "";
+    return localStorage.getItem(PROXY_KEY) || DEFAULT_PROXY_URL;
+  }
+
+  /** Returns true if proxy is enabled (default: true). */
+  function isProxyEnabled() {
+    const val = localStorage.getItem(PROXY_ENABLED_KEY);
+    return val === null ? true : val === "true"; // default ON
+  }
+
+  /** Enable or disable the proxy. */
+  function setProxyEnabled(enabled) {
+    localStorage.setItem(PROXY_ENABLED_KEY, String(enabled));
+  }
+
+  /** Get the default built-in proxy URL (for display purposes). */
+  function getDefaultProxyUrl() {
+    return DEFAULT_PROXY_URL;
   }
 
   return {
@@ -113,6 +151,7 @@ const Storage = (() => {
     loadPlaylists,
     savePlaylists,
     addPlaylist,
+    addPlaylistWithId,
     deletePlaylist,
     getPlaylist,
     saveLastActive,
@@ -120,5 +159,8 @@ const Storage = (() => {
     clearLastActive,
     saveProxyUrl,
     loadProxyUrl,
+    isProxyEnabled,
+    setProxyEnabled,
+    getDefaultProxyUrl,
   };
 })();

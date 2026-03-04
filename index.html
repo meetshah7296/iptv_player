@@ -38,30 +38,6 @@
     </div>
   </div>
 
-  <!-- ====== SETTINGS MODAL ====== -->
-  <div id="settings-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-    <div class="modal">
-      <h2 id="settings-title">&#9881; Settings</h2>
-
-      <label for="input-proxy-url">CORS Proxy URL <span class="optional">(optional)</span></label>
-      <input id="input-proxy-url" type="url"
-        placeholder="https://your-worker.your-subdomain.workers.dev"
-        autocomplete="off" />
-      <p class="settings-hint">
-        A Cloudflare Worker (or similar) that accepts
-        <code>?url=&lt;encoded-url&gt;</code> and forwards the request with
-        CORS headers. Needed when your IPTV provider blocks direct browser
-        fetches. Leave blank to fetch directly.
-        See <code>cors-proxy-worker.js</code> in the project for the Worker code.
-      </p>
-
-      <div class="modal-actions">
-        <button id="btn-settings-cancel" class="btn btn-ghost">Cancel</button>
-        <button id="btn-settings-save" class="btn btn-primary">Save</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ====== MAIN LAYOUT ====== -->
   <div class="app-layout">
 
@@ -69,16 +45,19 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <span class="logo">&#9654; IPTV</span>
-        <div class="sidebar-header-actions">
-          <span id="proxy-badge" class="proxy-badge hidden" title="">Proxy ON</span>
-          <button id="btn-open-settings" class="btn btn-ghost btn-sm btn-icon" title="Settings">&#9881;</button>
-          <button id="btn-add-playlist" class="btn btn-primary btn-sm" title="Add playlist">+ Add</button>
-        </div>
+        <button id="btn-add-playlist" class="btn btn-primary btn-sm" title="Add playlist">+ Add</button>
       </div>
 
       <nav id="playlist-list" class="playlist-nav">
         <!-- filled by app.js -->
       </nav>
+
+      <div class="sidebar-footer">
+        <button id="btn-proxy-toggle" class="btn btn-proxy-toggle" title="Toggle CORS proxy on/off">
+          <span class="proxy-toggle-dot"></span>
+          <span id="proxy-toggle-label">Proxy</span>
+        </button>
+      </div>
     </aside>
 
     <!-- MIDDLE: Channel list -->
