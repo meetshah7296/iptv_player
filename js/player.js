@@ -52,18 +52,6 @@ const Player = (() => {
       handlePlaybackError();
     });
 
-    vjsPlayer.on("stalled", () => {
-      if (isIOS && !vjsPlayer.paused()) {
-        clearTimeout(retryTimer);
-        retryTimer = setTimeout(() => {
-          if (!vjsPlayer.paused()) {
-            console.warn("iOS stall detected — retrying");
-            retryPlayback();
-          }
-        }, 3000);
-      }
-    });
-
     vjsPlayer.on("playing", () => {
       // Successful playback — reset retry counter and hide error overlay
       retryCount = 0;
