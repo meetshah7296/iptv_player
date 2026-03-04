@@ -751,10 +751,11 @@ a { color: var(--accent); }
     bottom: 0;
     left: 0;
     right: 0;
-    height: 58px;
+    height: calc(58px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--bg-surface);
     border-top: 1px solid var(--border);
-    z-index: 100;
+    z-index: 200;
   }
   .mobile-tab {
     flex: 1;
@@ -788,7 +789,7 @@ a { color: var(--accent); }
   .app-layout,
   .app-layout.channels-hidden {
     display: block !important;
-    height: calc(100vh - 58px);
+    height: calc(100vh - 58px - env(safe-area-inset-bottom, 0px));
     position: relative;
   }
 
