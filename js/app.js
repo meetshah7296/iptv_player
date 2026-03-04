@@ -89,9 +89,12 @@
      MOBILE TAB NAVIGATION
   ================================================================ */
   const MOBILE_BREAKPOINT = 600;
+  let activeTab = null; // track current tab so resize can't reset it
 
   function isMobile() {
-    return window.innerWidth <= MOBILE_BREAKPOINT;
+    // Use screen.width  not window.innerWidth — screen.width is stable on iOS
+    // even when the address bar animates in/out.
+    return screen.width <= MOBILE_BREAKPOINT;
   }
 
   function setupMobileTabs() {
@@ -99,28 +102,44 @@
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => setMobileTab(tab.dataset.tab));
     });
-    // Initial state: show playlists panel
+
     if (isMobile()) setMobileTab("playlists");
-    // Re-apply on resize / orientation change
-    const onViewportChange = () => {
-      if (!isMobile()) {
-        document
-          .querySelectorAll(".sidebar, .channel-panel, .player-panel")
-          .forEach((el) => el.classList.remove("mobile-active"));
-      } else {
-        // Re-trigger resize so Video.js repaints after rotation
-        window.dispatchEvent(new Event("resize"));
-        setTimeout(() => window.dispatchEvent(new Event("resize")), 300);
-      }
-    };
-    window.addEventListener("resize", onViewportChange);
+
+    // On real orientation change (not address-bar hide/show), restore the
+    // active tab. We do NOT dispatch fake resize events here — that caused
+    // an infinite loop that snapped users back to playlists.
     window.addEventListener("orientationchange", () => {
-      setTimeout(onViewportChange, 200);
+      setTimeout(() => {
+        if (isMobile() && activeTab) {
+          // Re-apply active panel and nudge Video.js if needed
+          const map = {
+            playlists: document.getElementById("sidebar"),
+            channels: document.getElementById("channel-panel"),
+            player: document.getElementById("player-panel"),
+          };
+          Object.values(map).forEach(
+            (el) => el && el.classList.remove("mobile-active"),
+          );
+          if (map[activeTab]) map[activeTab].classList.add("mobile-active");
+          if (activeTab === "player") nudgePlayerResize();
+        }
+      }, 250);
+    });
+  }
+
+  /** Ask Video.js to recalculate size without firing a real window resize. */
+  function nudgePlayerResize() {
+    // Give the layout one frame to settle, then update Video.js via its API
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (window.Player && Player.triggerResize) Player.triggerResize();
+      });
     });
   }
 
   function setMobileTab(name) {
     if (!isMobile()) return;
+    activeTab = name;
     // Update tab button active state
     document.querySelectorAll(".mobile-tab").forEach((t) => {
       t.classList.toggle("active", t.dataset.tab === name);
@@ -135,12 +154,7 @@
       (el) => el && el.classList.remove("mobile-active"),
     );
     if (map[name]) map[name].classList.add("mobile-active");
-    // Trigger resize so Video.js fills the new space when switching to player
-    if (name === "player") {
-      window.dispatchEvent(new Event("resize"));
-      setTimeout(() => window.dispatchEvent(new Event("resize")), 150);
-      setTimeout(() => window.dispatchEvent(new Event("resize")), 400);
-    }
+    if (name === "player") nudgePlayerResize();
   }
 
   /* ================================================================
@@ -667,10 +681,8 @@
     btnToggleChannels.title = hidden
       ? "Show channel list"
       : "Hide channel list";
-    // Video.js only responds to window resize — trigger it so the player
-    // recalculates and fills the newly available space after the CSS transition.
-    window.dispatchEvent(new Event("resize"));
-    setTimeout(() => window.dispatchEvent(new Event("resize")), 220);
+    // Let the CSS transition finish, then tell Video.js to repaint
+    setTimeout(() => Player.triggerResize(), 220);
   }
 
   function handleProxyToggle() {

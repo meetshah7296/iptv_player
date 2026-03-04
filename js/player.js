@@ -269,10 +269,21 @@ const Player = (() => {
     if (corsWarning) corsWarning.classList.add("hidden");
   }
 
+  /** Tell Video.js to recalculate its dimensions (e.g. after layout change). */
+  function triggerResize() {
+    if (!vjsPlayer) return;
+    // Video.js re-reads dimensions when its 'playerresize' event fires
+    // or when we call updateDisplay() directly.
+    try {
+      vjsPlayer.trigger("resize");
+    } catch (e) {}
+  }
+
   return {
     init,
     play,
     refreshEpg,
+    triggerResize,
     showCorsWarning,
     hideCorsWarning,
     get currentChannel() {
