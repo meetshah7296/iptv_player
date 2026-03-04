@@ -693,7 +693,10 @@ a { color: var(--accent); }
 /* ---------- Utility ---------- */
 .hidden { display: none !important; }
 
-/* ---------- Responsive (basic) ---------- */
+/* ---------- Mobile tab bar (hidden on desktop) ---------- */
+.mobile-tabs { display: none; }
+
+/* ---------- Responsive: tablet ---------- */
 @media (max-width: 900px) {
   :root {
     --sidebar-w: 52px;
@@ -708,7 +711,6 @@ a { color: var(--accent); }
   .sidebar-footer { padding: 8px 6px; }
 }
 
-/* Tablet / small desktop: player takes priority, channels slide below */
 @media (max-width: 700px) {
   .app-layout,
   .app-layout.channels-hidden {
@@ -731,10 +733,7 @@ a { color: var(--accent); }
     grid-column: 1;
     grid-row: 1 / 3;
   }
-  /* When channels are hidden on mobile, collapse the bottom row */
-  .app-layout.channels-hidden .channel-panel {
-    display: none;
-  }
+  .app-layout.channels-hidden .channel-panel { display: none; }
   .app-layout.channels-hidden .player-panel {
     grid-column: 2;
     grid-row: 1 / 3;
@@ -743,8 +742,91 @@ a { color: var(--accent); }
   .app-layout.channels-hidden #btn-toggle-channels { transform: rotate(90deg); }
 }
 
-@media (max-width: 480px) {
-  :root { --sidebar-w: 44px; }
-  .sidebar-header { padding: 8px 4px; }
-  .logo-icon { width: 26px; height: 26px; font-size: 11px; }
+/* ---------- Responsive: phone (bottom-tab layout) ---------- */
+@media (max-width: 600px) {
+  /* Show tab bar */
+  .mobile-tabs {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 58px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+  }
+  .mobile-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 6px 4px;
+    transition: color var(--transition);
+  }
+  .mobile-tab.active {
+    color: var(--accent);
+  }
+  .mobile-tab-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+  .mobile-tab-label {
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  /* Full screen app shell */
+  html, body { overflow: hidden; }
+  .app-layout,
+  .app-layout.channels-hidden {
+    display: block !important;
+    height: calc(100vh - 58px);
+    position: relative;
+  }
+
+  /* Each panel occupies the full area, hidden by default */
+  .sidebar,
+  .channel-panel,
+  .player-panel {
+    position: absolute !important;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+    display: none;
+    border: none !important;
+    max-height: none !important;
+  }
+
+  /* Active panel is shown */
+  .sidebar.mobile-active,
+  .channel-panel.mobile-active,
+  .player-panel.mobile-active {
+    display: flex !important;
+  }
+
+  /* Sidebar: show full info on mobile */
+  .sidebar {
+    flex-direction: column;
+  }
+  .sidebar .playlist-item-name,
+  .sidebar .playlist-item-count,
+  .sidebar .logo-text,
+  .sidebar #proxy-toggle-label {
+    display: initial !important;
+  }
+  .sidebar-header {
+    justify-content: space-between !important;
+    padding: 14px 14px 12px !important;
+  }
+
+  /* Hide the desktop channel-toggle button on mobile */
+  #btn-toggle-channels { display: none; }
 }

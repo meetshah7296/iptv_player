@@ -81,7 +81,59 @@
 
     // Always ensure the built-in "My IPTV" playlist exists
     ensureDefaultPlaylist();
+    // Set up mobile bottom tab navigation
+    setupMobileTabs();
   });
+
+  /* ================================================================
+     MOBILE TAB NAVIGATION
+  ================================================================ */
+  const MOBILE_BREAKPOINT = 600;
+
+  function isMobile() {
+    return window.innerWidth <= MOBILE_BREAKPOINT;
+  }
+
+  function setupMobileTabs() {
+    const tabs = document.querySelectorAll(".mobile-tab");
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => setMobileTab(tab.dataset.tab));
+    });
+    // Initial state: show playlists panel
+    if (isMobile()) setMobileTab("playlists");
+    // Also re-apply on resize in case user rotates device
+    window.addEventListener("resize", () => {
+      if (!isMobile()) {
+        // Remove mobile-active so desktop CSS takes over
+        document
+          .querySelectorAll(".sidebar, .channel-panel, .player-panel")
+          .forEach((el) => el.classList.remove("mobile-active"));
+      }
+    });
+  }
+
+  function setMobileTab(name) {
+    if (!isMobile()) return;
+    // Update tab button active state
+    document.querySelectorAll(".mobile-tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.tab === name);
+    });
+    // Show correct panel
+    const map = {
+      playlists: document.getElementById("sidebar"),
+      channels: document.getElementById("channel-panel"),
+      player: document.getElementById("player-panel"),
+    };
+    Object.values(map).forEach(
+      (el) => el && el.classList.remove("mobile-active"),
+    );
+    if (map[name]) map[name].classList.add("mobile-active");
+    // Trigger resize so Video.js fills the new space when switching to player
+    if (name === "player") {
+      window.dispatchEvent(new Event("resize"));
+      setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
+    }
+  }
 
   /* ================================================================
      DEFAULT PLAYLIST — always present
@@ -266,6 +318,8 @@
 
     activePlaylistId = id;
     if (persist) Storage.saveLastActive(id);
+    // On mobile, clicking a playlist auto-navigates to the channels tab
+    if (persist) setMobileTab("channels");
 
     renderPlaylistNav(); // refresh active state
 
@@ -451,6 +505,8 @@
   function handleChannelClick(channel) {
     activeChannelUrl = channel.url;
     Player.play(channel);
+    // On mobile, clicking a channel auto-navigates to the player tab
+    setMobileTab("player");
 
     // Re-render to show active highlight without full re-render
     document.querySelectorAll(".channel-row").forEach((row) => {
