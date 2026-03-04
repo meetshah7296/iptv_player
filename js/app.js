@@ -46,6 +46,7 @@
   let activeChannelUrl = null; // currently playing channel URL
   let allChannels = []; // channels of active playlist (unfiltered)
   let epgLoadingFor = null; // playlist id for which EPG is being loaded
+  let defaultPlaylistChannels = null; // in-memory cache (not persisted to localStorage)
 
   /* ================================================================
      INIT
@@ -85,54 +86,69 @@
 
   /**
    * Called on every page load.
-   * If the built-in playlist is already saved, just restore/render normally.
-   * If it is missing (first load or user deleted it), fetch and recreate it.
+   * Ensures the built-in "My IPTV" entry exists in localStorage (metadata only,
+   * no channels stored — channels are fetched fresh and kept in memory to avoid
+   * exceeding the ~5 MB localStorage quota with large playlists).
    */
   function ensureDefaultPlaylist() {
     const existing = Storage.getPlaylist(DEFAULT_PLAYLIST_ID);
 
-    if (existing) {
-      // Already saved — just render and restore active
-      renderPlaylistNav();
-      const lastId = Storage.loadLastActive();
-      const targetId =
-        lastId && Storage.getPlaylist(lastId) ? lastId : DEFAULT_PLAYLIST_ID;
-      activatePlaylist(targetId, false);
-      return;
-    }
-
-    // Missing — fetch and recreate
-    loadDefaultPlaylist();
-  }
-
-  async function loadDefaultPlaylist() {
-    channelListEl.innerHTML = "";
-    const hint = document.createElement("div");
-    hint.className = "empty-state";
-    hint.innerHTML = "<p>📡</p><p>Loading My IPTV playlist…</p>";
-    channelListEl.appendChild(hint);
-
-    try {
-      const proxyUrl = Storage.loadProxyUrl();
-      const { epgUrlHint, channels } = await M3UParser.fetchAndParse(
-        DEFAULT_PLAYLIST.url,
-        proxyUrl,
-      );
-      // Save with the fixed reserved ID
+    if (!existing) {
+      // Save metadata entry so the sidebar shows it immediately
       Storage.addPlaylistWithId({
         id: DEFAULT_PLAYLIST_ID,
         name: DEFAULT_PLAYLIST.name,
         url: DEFAULT_PLAYLIST.url,
-        epgUrl: DEFAULT_PLAYLIST.epgUrl || epgUrlHint || "",
-        channels,
+        epgUrl: DEFAULT_PLAYLIST.epgUrl,
+        channels: [], // channels are never persisted — kept in memory only
       });
-      renderPlaylistNav();
-      activatePlaylist(DEFAULT_PLAYLIST_ID, true);
-    } catch (err) {
-      console.warn("Default playlist load failed:", err.message);
-      renderPlaylistNav();
+    }
+
+    renderPlaylistNav();
+
+    const lastId = Storage.loadLastActive();
+    const targetId =
+      lastId && Storage.getPlaylist(lastId) ? lastId : DEFAULT_PLAYLIST_ID;
+    activatePlaylist(targetId, false);
+  }
+
+  /** Fetch the default playlist's channels and cache them in memory. */
+  async function fetchDefaultPlaylistChannels() {
+    // Show loading indicator only if this playlist is currently active
+    if (activePlaylistId === DEFAULT_PLAYLIST_ID) {
       channelListEl.innerHTML = "";
-      channelListEl.appendChild(emptyChannelsEl);
+      const hint = document.createElement("div");
+      hint.className = "empty-state";
+      hint.innerHTML = "<p>\uD83D\uDCE1</p><p>Loading My IPTV playlist\u2026</p>";
+      channelListEl.appendChild(hint);
+    }
+
+    try {
+      const proxyUrl = Storage.loadProxyUrl();
+      const { channels } = await M3UParser.fetchAndParse(
+        DEFAULT_PLAYLIST.url,
+        proxyUrl,
+      );
+      defaultPlaylistChannels = channels;
+
+      // Refresh sidebar count
+      renderPlaylistNav();
+
+      // Populate channel list if still on this playlist
+      if (activePlaylistId === DEFAULT_PLAYLIST_ID) {
+        allChannels = channels;
+        searchInput.value = "";
+        renderChannelList(allChannels);
+      }
+    } catch (err) {
+      console.warn("Default playlist fetch failed:", err.message);
+      if (activePlaylistId === DEFAULT_PLAYLIST_ID) {
+        allChannels = [];
+        channelListEl.innerHTML = "";
+        emptyChannelsEl.querySelector("p:last-child").textContent =
+          "Could not load My IPTV. Check your connection or proxy settings.";
+        channelListEl.appendChild(emptyChannelsEl);
+      }
     }
   }
 
@@ -170,7 +186,10 @@
 
       const count = document.createElement("span");
       count.className = "playlist-item-count";
-      count.textContent = pl.channels.length;
+      count.textContent =
+        pl.id === DEFAULT_PLAYLIST_ID && defaultPlaylistChannels !== null
+          ? defaultPlaylistChannels.length
+          : pl.channels.length;
 
       const del = document.createElement("button");
       del.className = "playlist-item-delete";
@@ -213,9 +232,22 @@
 
     renderPlaylistNav(); // refresh active state
 
-    allChannels = pl.channels;
-    searchInput.value = "";
-    renderChannelList(allChannels);
+    if (id === DEFAULT_PLAYLIST_ID) {
+      if (defaultPlaylistChannels !== null) {
+        // Already fetched this session — use memory cache
+        allChannels = defaultPlaylistChannels;
+        searchInput.value = "";
+        renderChannelList(allChannels);
+      } else {
+        // First access — fetch now (async, shows its own loading UI)
+        allChannels = [];
+        fetchDefaultPlaylistChannels();
+      }
+    } else {
+      allChannels = pl.channels;
+      searchInput.value = "";
+      renderChannelList(allChannels);
+    }
 
     // Lazy-load EPG
     if (pl.epgUrl && pl.id !== epgLoadingFor) {
