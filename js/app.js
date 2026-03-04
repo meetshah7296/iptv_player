@@ -603,6 +603,10 @@
     btnToggleChannels.title = hidden
       ? "Show channel list"
       : "Hide channel list";
+    // Video.js only responds to window resize — trigger it so the player
+    // recalculates and fills the newly available space after the CSS transition.
+    window.dispatchEvent(new Event("resize"));
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 220);
   }
 
   function handleProxyToggle() {
