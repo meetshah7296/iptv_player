@@ -22,6 +22,10 @@ const Player = (() => {
    * Initialize the Video.js player and cache DOM references.
    * Must be called after DOMContentLoaded.
    */
+  // iOS Safari has native HLS — let it handle streams natively.
+  // Forcing overrideNative=true on iOS causes stalling and random stops.
+  const isIOS = /iP(hone|ad|od)/i.test(navigator.userAgent);
+
   function init() {
     vjsPlayer = videojs("iptv-video", {
       controls: true,
@@ -32,20 +36,32 @@ const Player = (() => {
       liveui: true,
       html5: {
         vhs: {
-          overrideNative: true,
+          overrideNative: !isIOS,
           enableLowInitialPlaylist: true,
           smoothQualityChange: true,
+          // Larger buffer on mobile to survive brief network hiccups
+          bufferBasedABR: true,
+          maxBufferLength: isIOS ? 60 : 30,
         },
-        nativeAudioTracks: false,
-        nativeVideoTracks: false,
+        nativeAudioTracks: isIOS,
+        nativeVideoTracks: isIOS,
       },
       errorDisplay: true,
     });
 
-    // Handle player errors gracefully
+    // On stall/error, attempt a single automatic recovery
     vjsPlayer.on("error", () => {
       const err = vjsPlayer.error();
       console.error("Video.js error:", err);
+    });
+
+    vjsPlayer.on("stalled", () => {
+      // Short pause then resume to kick iOS out of a stall
+      if (isIOS && !vjsPlayer.paused()) {
+        setTimeout(() => {
+          if (!vjsPlayer.paused()) vjsPlayer.play();
+        }, 1500);
+      }
     });
 
     // Cache DOM refs
