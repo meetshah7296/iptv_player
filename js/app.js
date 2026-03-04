@@ -112,44 +112,70 @@
     activatePlaylist(targetId, false);
   }
 
+  let defaultPlaylistFetching = false; // prevent duplicate in-flight fetches
+
   /** Fetch the default playlist's channels and cache them in memory. */
   async function fetchDefaultPlaylistChannels() {
-    // Show loading indicator only if this playlist is currently active
-    if (activePlaylistId === DEFAULT_PLAYLIST_ID) {
-      channelListEl.innerHTML = "";
-      const hint = document.createElement("div");
-      hint.className = "empty-state";
-      hint.innerHTML =
-        "<p>\uD83D\uDCE1</p><p>Loading My IPTV playlist\u2026</p>";
-      channelListEl.appendChild(hint);
+    if (defaultPlaylistFetching) return; // already in flight
+    defaultPlaylistFetching = true;
+
+    // Show loading indicator
+    channelListEl.innerHTML = "";
+    const hint = document.createElement("div");
+    hint.className = "empty-state";
+    hint.innerHTML = "<p>\uD83D\uDCE1</p><p>Loading My IPTV playlist\u2026</p>";
+    channelListEl.appendChild(hint);
+
+    let channels = null;
+
+    // Try 1: with proxy (if enabled)
+    const proxyUrl = Storage.loadProxyUrl();
+    if (proxyUrl) {
+      try {
+        const result = await M3UParser.fetchAndParse(
+          DEFAULT_PLAYLIST.url,
+          proxyUrl,
+        );
+        channels = result.channels;
+      } catch (e) {
+        console.warn("Default playlist fetch via proxy failed:", e.message);
+      }
     }
 
-    try {
-      const proxyUrl = Storage.loadProxyUrl();
-      const { channels } = await M3UParser.fetchAndParse(
-        DEFAULT_PLAYLIST.url,
-        proxyUrl,
-      );
+    // Try 2: direct (no proxy) fallback
+    if (!channels) {
+      try {
+        const result = await M3UParser.fetchAndParse(DEFAULT_PLAYLIST.url, "");
+        channels = result.channels;
+      } catch (e) {
+        console.warn("Default playlist direct fetch failed:", e.message);
+      }
+    }
+
+    defaultPlaylistFetching = false;
+
+    if (channels && channels.length) {
       defaultPlaylistChannels = channels;
+      renderPlaylistNav(); // update sidebar count
 
-      // Refresh sidebar count
-      renderPlaylistNav();
-
-      // Populate channel list if still on this playlist
       if (activePlaylistId === DEFAULT_PLAYLIST_ID) {
         allChannels = channels;
         searchInput.value = "";
         renderChannelList(allChannels);
       }
-    } catch (err) {
-      console.warn("Default playlist fetch failed:", err.message);
-      if (activePlaylistId === DEFAULT_PLAYLIST_ID) {
-        allChannels = [];
-        channelListEl.innerHTML = "";
-        emptyChannelsEl.querySelector("p:last-child").textContent =
-          "Could not load My IPTV. Check your connection or proxy settings.";
-        channelListEl.appendChild(emptyChannelsEl);
-      }
+    } else {
+      // Both attempts failed — show a retry button
+      channelListEl.innerHTML = "";
+      const errDiv = document.createElement("div");
+      errDiv.className = "empty-state";
+      errDiv.innerHTML =
+        "<p>\u26A0\uFE0F</p>" +
+        "<p>Could not load My IPTV channels.<br>Check your connection or proxy settings.</p>" +
+        "<button class='btn btn-primary btn-sm' style='margin-top:12px' id='btn-retry-default'>Retry</button>";
+      channelListEl.appendChild(errDiv);
+      document
+        .getElementById("btn-retry-default")
+        .addEventListener("click", fetchDefaultPlaylistChannels);
     }
   }
 
