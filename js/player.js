@@ -15,7 +15,7 @@ const Player = (() => {
 
   // DOM refs (set during init)
   let npLogo, npChannelName, npProgram;
-  let epgStripInner, epgPlaceholder;
+  let epgStrip, epgStripInner, epgPlaceholder;
   let corsWarning;
 
   /**
@@ -52,9 +52,12 @@ const Player = (() => {
     npLogo = document.getElementById("np-logo");
     npChannelName = document.getElementById("np-channel-name");
     npProgram = document.getElementById("np-program");
+    epgStrip = document.getElementById("epg-strip");
     epgStripInner = document.getElementById("epg-strip-inner");
     epgPlaceholder = document.getElementById("epg-placeholder");
     corsWarning = document.getElementById("cors-warning");
+    // Hide strip by default until real EPG data arrives
+    epgStrip.classList.add("hidden");
   }
 
   /**
@@ -128,6 +131,7 @@ const Player = (() => {
     }
 
     epgStripInner.innerHTML = "";
+    if (epgStrip) epgStrip.classList.remove("hidden");
 
     if (now) {
       epgStripInner.appendChild(buildEpgCard("NOW", now));
@@ -172,6 +176,8 @@ const Player = (() => {
   }
 
   function showEpgPlaceholder(msg) {
+    // Hide the strip entirely — no point showing "EPG not loaded" to the user
+    if (epgStrip) epgStrip.classList.add("hidden");
     epgStripInner.innerHTML = "";
     if (epgPlaceholder) {
       epgPlaceholder.textContent = msg;
