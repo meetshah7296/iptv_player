@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPTV Player</title>
+
+  <!-- Video.js -->
+  <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+  <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ====== ADD / EDIT PLAYLIST MODAL ====== -->
+  <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal">
+      <h2 id="modal-title">Add Playlist</h2>
+      <label for="input-playlist-name">Playlist Name</label>
+      <input id="input-playlist-name" type="text" placeholder="My IPTV" autocomplete="off" />
+
+      <label for="input-m3u-url">M3U / M3U8 URL</label>
+      <input id="input-m3u-url" type="url" placeholder="http://example.com/playlist.m3u" autocomplete="off" />
+
+      <label for="input-epg-url">EPG URL <span class="optional">(optional)</span></label>
+      <input id="input-epg-url" type="url" placeholder="http://example.com/epg.xml" autocomplete="off" />
+
+      <div id="modal-error" class="modal-error hidden"></div>
+
+      <div class="modal-actions">
+        <button id="btn-modal-cancel" class="btn btn-ghost">Cancel</button>
+        <button id="btn-modal-save" class="btn btn-primary">
+          <span id="btn-modal-save-text">Load &amp; Save</span>
+          <span id="btn-modal-spinner" class="spinner hidden"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SETTINGS MODAL ====== -->
+  <div id="settings-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="modal">
+      <h2 id="settings-title">&#9881; Settings</h2>
+
+      <label for="input-proxy-url">CORS Proxy URL <span class="optional">(optional)</span></label>
+      <input id="input-proxy-url" type="url"
+        placeholder="https://your-worker.your-subdomain.workers.dev"
+        autocomplete="off" />
+      <p class="settings-hint">
+        A Cloudflare Worker (or similar) that accepts
+        <code>?url=&lt;encoded-url&gt;</code> and forwards the request with
+        CORS headers. Needed when your IPTV provider blocks direct browser
+        fetches. Leave blank to fetch directly.
+        See <code>cors-proxy-worker.js</code> in the project for the Worker code.
+      </p>
+
+      <div class="modal-actions">
+        <button id="btn-settings-cancel" class="btn btn-ghost">Cancel</button>
+        <button id="btn-settings-save" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== MAIN LAYOUT ====== -->
+  <div class="app-layout">
+
+    <!-- LEFT: Playlists sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <span class="logo">&#9654; IPTV</span>
+        <div class="sidebar-header-actions">
+          <span id="proxy-badge" class="proxy-badge hidden" title="">Proxy ON</span>
+          <button id="btn-open-settings" class="btn btn-ghost btn-sm btn-icon" title="Settings">&#9881;</button>
+          <button id="btn-add-playlist" class="btn btn-primary btn-sm" title="Add playlist">+ Add</button>
+        </div>
+      </div>
+
+      <nav id="playlist-list" class="playlist-nav">
+        <!-- filled by app.js -->
+      </nav>
+    </aside>
+
+    <!-- MIDDLE: Channel list -->
+    <section class="channel-panel" id="channel-panel">
+      <div class="channel-panel-header">
+        <div class="search-wrap">
+          <span class="search-icon">&#128269;</span>
+          <input id="input-search" type="search" placeholder="Search channels…" autocomplete="off" />
+        </div>
+        <span id="channel-count" class="channel-count"></span>
+      </div>
+
+      <div id="channel-list" class="channel-list">
+        <div class="empty-state" id="empty-channels">
+          <p>&#128196;</p>
+          <p>Add a playlist to get started.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Player -->
+    <main class="player-panel" id="player-panel">
+      <div class="now-playing-bar" id="now-playing-bar">
+        <img id="np-logo" class="np-logo hidden" src="" alt="channel logo" />
+        <div class="np-info">
+          <span id="np-channel-name" class="np-channel-name">No channel selected</span>
+          <span id="np-program" class="np-program"></span>
+        </div>
+      </div>
+
+      <div class="video-wrap">
+        <video
+          id="iptv-video"
+          class="video-js vjs-default-skin vjs-big-play-centered"
+          controls
+          preload="auto"
+          playsinline
+        >
+          <p class="vjs-no-js">
+            To view this video please enable JavaScript, and consider upgrading to a
+            web browser that supports HTML5 video.
+          </p>
+        </video>
+      </div>
+
+      <!-- EPG strip -->
+      <div class="epg-strip" id="epg-strip">
+        <div class="epg-strip-inner" id="epg-strip-inner">
+          <div class="epg-placeholder" id="epg-placeholder">EPG not loaded</div>
+        </div>
+      </div>
+
+      <!-- CORS warning -->
+      <div id="cors-warning" class="cors-warning hidden">
+        &#9888; Could not fetch this URL &mdash; it may be blocked by CORS.
+        Deploy the included <strong>cors-proxy-worker.js</strong> to Cloudflare Workers (free),
+        then paste your Worker URL in <strong>&#9881; Settings</strong> (top-left).
+        Alternatively install a browser extension like <strong>CORS Unblock</strong>.
+      </div>
+    </main>
+
+  </div><!-- end .app-layout -->
+
+  <script src="js/storage.js"></script>
+  <script src="js/m3u-parser.js"></script>
+  <script src="js/epg-parser.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
