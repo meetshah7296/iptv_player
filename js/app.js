@@ -101,14 +101,21 @@
     });
     // Initial state: show playlists panel
     if (isMobile()) setMobileTab("playlists");
-    // Also re-apply on resize in case user rotates device
-    window.addEventListener("resize", () => {
+    // Re-apply on resize / orientation change
+    const onViewportChange = () => {
       if (!isMobile()) {
-        // Remove mobile-active so desktop CSS takes over
         document
           .querySelectorAll(".sidebar, .channel-panel, .player-panel")
           .forEach((el) => el.classList.remove("mobile-active"));
+      } else {
+        // Re-trigger resize so Video.js repaints after rotation
+        window.dispatchEvent(new Event("resize"));
+        setTimeout(() => window.dispatchEvent(new Event("resize")), 300);
       }
+    };
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("orientationchange", () => {
+      setTimeout(onViewportChange, 200);
     });
   }
 
@@ -131,7 +138,8 @@
     // Trigger resize so Video.js fills the new space when switching to player
     if (name === "player") {
       window.dispatchEvent(new Event("resize"));
-      setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
+      setTimeout(() => window.dispatchEvent(new Event("resize")), 150);
+      setTimeout(() => window.dispatchEvent(new Event("resize")), 400);
     }
   }
 

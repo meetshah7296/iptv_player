@@ -744,18 +744,18 @@ a { color: var(--accent); }
 
 /* ---------- Responsive: phone (bottom-tab layout) ---------- */
 @media (max-width: 600px) {
-  /* Show tab bar */
+  /* ── Tab bar ── */
   .mobile-tabs {
     display: flex;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: calc(58px + env(safe-area-inset-bottom, 0px));
+    height: calc(52px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--bg-surface);
     border-top: 1px solid var(--border);
-    z-index: 200;
+    z-index: 300;
   }
   .mobile-tab {
     flex: 1;
@@ -767,54 +767,88 @@ a { color: var(--accent); }
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 10px;
     cursor: pointer;
     padding: 6px 4px;
     transition: color var(--transition);
+    -webkit-tap-highlight-color: transparent;
   }
-  .mobile-tab.active {
-    color: var(--accent);
-  }
-  .mobile-tab-icon {
-    font-size: 18px;
-    line-height: 1;
-  }
-  .mobile-tab-label {
-    font-size: 10px;
-    font-weight: 500;
+  .mobile-tab.active { color: var(--accent); }
+  .mobile-tab-icon { font-size: 18px; line-height: 1; }
+  .mobile-tab-label { font-size: 10px; font-weight: 500; }
+
+  /* ── Lock body to prevent page scroll ── */
+  html, body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    /* Prevents rubber-band scrolling on the root */
+    overscroll-behavior: none;
   }
 
-  /* Full screen app shell */
-  html, body { overflow: hidden; }
+  /* ── App shell: fixed to fill space above tab bar ── */
   .app-layout,
   .app-layout.channels-hidden {
     display: block !important;
-    height: calc(100vh - 58px - env(safe-area-inset-bottom, 0px));
-    position: relative;
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    /* Anchor bottom to tab bar — reliable on iOS (avoids 100vh bug) */
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+    height: auto !important;
+    overflow: hidden;
   }
 
-  /* Each panel occupies the full area, hidden by default */
+  /* ── Each panel fills the shell, hidden by default ── */
   .sidebar,
   .channel-panel,
   .player-panel {
     position: absolute !important;
-    inset: 0;
+    inset: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    display: none;
+    display: none !important;
     border: none !important;
     max-height: none !important;
+    overflow: hidden;
   }
 
-  /* Active panel is shown */
+  /* ── Active panel is shown ── */
   .sidebar.mobile-active,
   .channel-panel.mobile-active,
   .player-panel.mobile-active {
     display: flex !important;
   }
 
-  /* Sidebar: show full info on mobile */
-  .sidebar {
+  /* ── Player panel: video fills remaining height ── */
+  .player-panel.mobile-active {
+    flex-direction: column;
+  }
+  .player-panel.mobile-active .video-wrap {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+  .player-panel.mobile-active .video-wrap .video-js {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* ── Channel panel: make list scrollable ── */
+  .channel-panel.mobile-active {
+    flex-direction: column;
+  }
+  .channel-panel.mobile-active .channel-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    min-height: 0;
+  }
+
+  /* ── Sidebar: show full labels ── */
+  .sidebar.mobile-active {
     flex-direction: column;
   }
   .sidebar .playlist-item-name,
@@ -827,7 +861,12 @@ a { color: var(--accent); }
     justify-content: space-between !important;
     padding: 14px 14px 12px !important;
   }
+  .sidebar .playlist-nav {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 
-  /* Hide the desktop channel-toggle button on mobile */
+  /* ── Hide desktop-only controls ── */
   #btn-toggle-channels { display: none; }
 }
